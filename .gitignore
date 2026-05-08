@@ -1,3 +1,16 @@
 node_modules
-# Keep environment variables out of version control
+
+# Environment variables
 .env
+
+# Next.js build
+.next
+.vercel
+
+# IDE
+.idea
+.vscode
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,124 @@
+// FluentSRS - Schema com suporte a Multi-Usuário e Gamificação
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Usuário do sistema
+model User {
+  id            Int          @id @default(autoincrement())
+  email         String       @unique
+  name          String
+  password      String       // hash bcrypt
+  level         String       @default("A1") // nível atual estimado
+  targetLevel   String       @default("C1") // meta
+  
+  // Gamificação
+  xp            Int          @default(0) // pontos de experiência
+  gems          Int          @default(0) // joias/moedas
+  title         String       @default("Novato") // título Achievement
+  dayStreak     Int          @default(0) // sequência de dias
+  weekStreak    Int          @default(0) // sequência de semanas
+  
+  srsRecords    SRSRecord[]
+  
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+  
+  // Stats agregadas
+  totalPhrases  Int          @default(0)
+  totalWords    Int          @default(0)
+  masteredPhrases Int        @default(0)
+  masteredWords  Int          @default(0)
+  streakDays    Int          @default(0)
+  lastStudyDate DateTime?
+}
+
+// Palavras do vocabulário
+model Word {
+  id           Int       @id @default(autoincrement())
+  word         String    @unique
+  translation  String?
+  phonetics    String?
+  level        String    @default("A1")
+  partOfSpeech String?
+  imageUrl     String?
+
+  phrases      PhraseWord[]
+  srsRecords   SRSRecord[]
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+}
+
+// Frases completas - unidade primária
+model Phrase {
+  id          Int       @id @default(autoincrement())
+  text        String    @unique
+  translation String?
+  level       String    @default("A1")
+  source      String?
+  imageUrl    String?
+
+  words       PhraseWord[]
+  srsRecords  SRSRecord[]
+
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+}
+
+// Relação N:N - Palavras extraídas das frases
+model PhraseWord {
+  phraseId  Int
+  wordId    Int
+
+  phrase    Phrase  @relation(fields: [phraseId], references: [id], onDelete: Cascade)
+  word      Word    @relation(fields: [wordId], references: [id], onDelete: Cascade)
+
+  @@id([phraseId, wordId])
+}
+
+// SRS - Sistema de Repetição Espaçada
+model SRSRecord {
+  id              Int       @id @default(autoincrement())
+  
+  // Relations
+  userId          Int
+  wordId          Int?
+  phraseId        Int?
+  
+  user            User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  word            Word?     @relation(fields: [wordId], references: [id], onDelete: Cascade)
+  phrase          Phrase?   @relation(fields: [phraseId], references: [id], onDelete: Cascade)
+
+  // SM-2 campos
+  easeFactor      Float     @default(2.5)
+  interval        Float     @default(0)
+  repetitions     Int       @default(0)
+  lastReview      DateTime  @default(now())
+  nextReview      DateTime  @default(now())
+  
+  // Estatísticas
+  totalReviews    Int       @default(0)
+  correctReviews  Int       @default(0)
+  
+  // Gamificação
+  xpEarned        Int       @default(0)
+  
+  // Status: new -> learning -> review -> graduated
+  status          String    @default("new")
+  
+  // 0 = frase, 1 = palavra
+  entityType      Int       @default(0)
+
+  createdAt       DateTime  @default(now())
+
+  @@index([userId, nextReview, status])
+  @@index([userId, phraseId])
+  @@index([userId, wordId])
+}
